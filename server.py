@@ -7,6 +7,7 @@ messages = queue.Queue()
 clients = []
 PASSWORD = "12345"
 auth_clients={}
+usernames = set()
 
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("0.0.0.0", 9999))
@@ -30,6 +31,10 @@ def receive():
                     server.sendto("Masukkan password dengan format PASSWORD:<password>".encode(), addr)
 
             else:
+                if message.decode().startswith("SIGNUP_TAG"):
+                    username = message.decode().split(":")[1].strip()
+                    if username in usernames:
+                        server.sendto("Unavailable username")
                 messages.put((message, addr))
         except:
             pass
