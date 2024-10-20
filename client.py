@@ -25,10 +25,10 @@ def get_valid_port():
                             return sendPORT
                         else:
                             print ("pilihan tidak valid, coba lagi.")
-                    else:
-                        return sendPORT
                 else:
-                    print("Port harus dalam rentang 0-65535, coba lagi.")
+                    return sendPORT
+            else:
+                print("Port harus dalam rentang 0-65535, coba lagi.")
         except ValueError:
             print("Port yang dimasukkan tidak valid. Harus berupa angka, coba kembali")
 def get_valid_IP():
