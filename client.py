@@ -36,7 +36,10 @@ def get_valid_IP():
         sendIP=input("IP: ")
         try:
             socket.inet_aton(sendIP)
-            return sendIP
+            if sendIP.count('.')==3:
+                return sendIP
+            else:
+                print("Format IP address tidak valid, coba lagi")
         except socket.error:
             print("IP Address tidak valid, coba lagi")
 sendPORT = get_valid_port()
@@ -44,7 +47,11 @@ sendIP = get_valid_IP()
 server_address = (sendIP, sendPORT)
 
 password = input("Password: ")
-client.sendto(f"PASSWORD:{password}". encode(), server_address)
+try:
+    client.sendto(f"PASSWORD:{password}". encode(), server_address)
+except Exception as e:
+     print(f"Error saat mengirim password: {e}")
+     exit()
 
 def receive():
     while True:
