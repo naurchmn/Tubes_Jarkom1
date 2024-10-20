@@ -34,8 +34,11 @@ def receive():
                 if message.decode().startswith("SIGNUP_TAG"):
                     username = message.decode().split(":")[1].strip()
                     if username in usernames:
-                        server.sendto("Unavailable username")
-                messages.put((message, addr))
+                        server.sendto("Unavailable username".encode(), addr)
+                    else:
+                        usernames.add(username)
+                        messages.put(f"SIGNUP_TAG: {username}".encode(), addr)
+                
         except:
             pass
 
@@ -53,12 +56,14 @@ def broadcast():
                     if message.decode().startswith("SIGNUP_TAG:"):
                         username = message.decode()[message.decode().index(":")+1:]
                         server.sendto(f"{username} memasuki obrolan!". encode(), client)
+
                     elif message.decode().startswith("LEAVE_TAG:"):
                         username = message.decode()[message.decode().index(":")+1:]
                         clients.remove(addr)
                         broadcast_message = f"{username} keluar dari obrolan."
                         for client in clients:
                             server.sendto(broadcast_message.encode(), client)
+                            
                     else:
                         print("Pesan dikirim")
                         server.sendto(f"{message.decode()}". encode(), client)
