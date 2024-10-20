@@ -8,6 +8,7 @@ clients = []
 PASSWORD = "12345"
 auth_clients={}
 usernames = set()
+username_map = {}
 
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("0.0.0.0", 9999))
@@ -31,13 +32,19 @@ def receive():
                     server.sendto("Masukkan password dengan format PASSWORD:<password>".encode(), addr)
 
             else:
-                if message.decode().startswith("SIGNUP_TAG"):
-                    username = message.decode().split(":")[1].strip()
-                    if username in usernames:
-                        server.sendto("Unavailable username".encode(), addr)
-                    else:
-                        usernames.add(username)
-                        messages.put(f"SIGNUP_TAG: {username}".encode(), addr)
+                if addr not in username_map:
+                    if message.decode().startswith("SIGNUP_TAG:"):
+                        username = message.decode().split(":")[1].strip()
+                        if username in usernames:
+                            server.sendto("Unavailable username".encode(), addr)
+                        else:
+                            usernames.add(username)
+                            username_map[addr] = username
+                            messages.put((f"SIGNUP_TAG: {username}".encode(), addr))
+                            # server.sendto("Berhasil masuk ke obroloan".encode(), addr)
+                
+                else:
+                    messages.put((message, addr))
                 
         except:
             pass
@@ -55,20 +62,28 @@ def broadcast():
                 try:
                     if message.decode().startswith("SIGNUP_TAG:"):
                         username = message.decode()[message.decode().index(":")+1:]
-                        server.sendto(f"{username} memasuki obrolan!". encode(), client)
+                        server.sendto(f"{username} memasuki obrolan!".encode(), client)
 
                     elif message.decode().startswith("LEAVE_TAG:"):
-                        username = message.decode()[message.decode().index(":")+1:]
-                        clients.remove(addr)
+                        username = username_map.get(addr, "Unknown")
+                        if addr in clients:
+                            clients.remove(addr)
+                        if addr in username_map:
+                            usernames.remove(username_map[addr])
+                            del username_map[addr]
+                        if addr in auth_clients:
+                            del auth_clients[addr]
                         broadcast_message = f"{username} keluar dari obrolan."
                         for client in clients:
                             server.sendto(broadcast_message.encode(), client)
-                            
+
                     else:
                         print("Pesan dikirim")
-                        server.sendto(f"{message.decode()}". encode(), client)
+                        server.sendto(f"{message.decode()}".encode(), client)
                 except:
-                    clients.remove(client)
+                    if client in clients:
+                        clients.remove(client)
+
 t1 = threading.Thread(target=receive)
 t2 = threading.Thread(target=broadcast)
 

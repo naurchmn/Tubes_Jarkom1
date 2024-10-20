@@ -5,10 +5,9 @@ import random
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 client.bind(("0.0.0.0", random.randint(8000, 9000)))
 
-username= input("Username:")
+
 hostname= socket.gethostname()
 IP = socket.gethostbyname(hostname)
-print(f"Your IP: {IP}")
 
 def get_valid_port():
     while True:
@@ -31,6 +30,7 @@ def get_valid_port():
                 print("Port harus dalam rentang 0-65535, coba lagi.")
         except ValueError:
             print("Port yang dimasukkan tidak valid. Harus berupa angka, coba kembali")
+
 def get_valid_IP():
     while True:
         sendIP=input("IP: ")
@@ -42,16 +42,34 @@ def get_valid_IP():
                 print("Format IP address tidak valid, coba lagi")
         except socket.error:
             print("IP Address tidak valid, coba lagi")
+
 sendPORT = get_valid_port()
 sendIP = get_valid_IP()
 server_address = (sendIP, sendPORT)
 
+print(f"Your IP: {IP}")
+
 password = input("Password: ")
 try:
-    client.sendto(f"PASSWORD:{password}". encode(), server_address)
+    client.sendto(f"PASSWORD:{password}".encode(), server_address)
 except Exception as e:
      print(f"Error saat mengirim password: {e}")
      exit()
+
+while True:
+    username = input("Username: ")
+    client.sendto(f"SIGNUP_TAG:{username}".encode(), server_address)
+
+    try:
+        message, _ = client.recvfrom(1024)
+        response = message.decode()
+        if response == "Unavailable username":
+            print("Username sudah terdaftar, silakan masukkan username yang lain.")
+        else:
+            print("Username berhasil terdaftar.")
+            break
+    except Exception as e:
+        print(f"Error saat menerima respon: {e}")
 
 def receive():
     while True:
@@ -60,6 +78,7 @@ def receive():
             print(message.decode())
         except:
             pass
+
 
 t = threading.Thread(target=receive)
 t.start()
