@@ -8,7 +8,13 @@ client.bind(("0.0.0.0", random.randint(8000, 9000)))
 
 hostname= socket.gethostname()
 IP = socket.gethostbyname(hostname)
-
+def receive():
+    while True:
+        try:
+            message, _ = client.recvfrom(1024)
+            print(message.decode())
+        except:
+            pass
 def get_valid_port():
     while True:
         try:
@@ -52,36 +58,44 @@ print(f"Your IP: {IP}")
 password = input("Password: ")
 try:
     client.sendto(f"PASSWORD:{password}".encode(), server_address)
+    message, _ = client.recvfrom(1024)
+    response = message.decode()
+    print(f"Server response: {response}")
+    if response == "Password benar! Anda berada di obrolan":
+        while True:
+            username = input("Username: ")
+            client.sendto(f"CHECK_USERNAME:{username}".encode(), server_address)
+            
+            print("Checking username availability...")
+            
+            message, _ = client.recvfrom(1024)
+            response = message.decode()
+
+            print(f"Server response: {response}")
+            
+            if response == "Username available":
+                client.sendto(f"SET_USERNAME:{username}".encode(), server_address)
+                confirmation, _ = client.recvfrom(1024)
+                print(confirmation.decode())
+                break
+            
+            elif response == "Username unavailable":
+                print("Username sudah terdaftar, silakan masukkan username yang lain.")
+            else:
+                print("Unexpected response from server.")
+        print(f"Selected username: {username}")
+        
+        t = threading.Thread(target=receive)
+        t.start()
+
+        client.sendto(f"SIGNUP_TAG:{username}".encode(), server_address)
+    else:
+        print("Password salah, coba lagi.")
+        exit()
+    
 except Exception as e:
      print(f"Error saat mengirim password: {e}")
      exit()
-
-while True:
-    username = input("Username: ")
-    client.sendto(f"SIGNUP_TAG:{username}".encode(), server_address)
-
-    try:
-        message, _ = client.recvfrom(1024)
-        response = message.decode()
-        if response == "Unavailable username":
-            print("Username sudah terdaftar, silakan masukkan username yang lain.")
-        else:
-            print("Username berhasil terdaftar.")
-            break
-    except Exception as e:
-        print(f"Error saat menerima respon: {e}")
-
-def receive():
-    while True:
-        try:
-            message, _ = client.recvfrom(1024)
-            print(message.decode())
-        except:
-            pass
-
-
-t = threading.Thread(target=receive)
-t.start()
 
 client.sendto(f"SIGNUP_TAG:{username}".encode(), server_address)
 
