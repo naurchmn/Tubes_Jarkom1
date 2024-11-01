@@ -5,6 +5,7 @@ from rsa_module import generate_keys, encrypt, decrypt
 
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 client.bind(("0.0.0.0", random.randint(8000, 9000)))
+client.settimeout(3)
 
 # get hostname sama ip
 hostname= socket.gethostname()
@@ -57,6 +58,8 @@ message, _ = client.recvfrom(1024)
 e, n = map(int, message.decode().split(","))
 server_public_key = (e, n)
 
+exit_flag = False 
+
 def receive_full_message():
     message_parts = []
     while True:
@@ -67,6 +70,11 @@ def receive_full_message():
                 break
             else:
                 message_parts.append(packet)
+        except socket.timeout:
+            if exit_flag:
+                break
+            else:
+                continue
         except Exception as e:
             print(f"Error saat menerima paket: {e}")
             break
@@ -76,17 +84,25 @@ def receive_full_message():
 
 
 def receive():
-    while True:
+    while not exit_flag:
         try:
             full_message = receive_full_message()
-            if full_message.startswith("ENCRYPTED:"):
+            if full_message == "bye bye":  
+                print("Server:", full_message)
+                client.close() 
+                break  
+            elif full_message.startswith("ENCRYPTED:"):
                 encrypted_message_hex = full_message.replace("ENCRYPTED:", "").strip()
                 decrypted_message = decrypt(encrypted_message_hex, private_key)
                 print(decrypted_message)
             else:
                 print(f"Server message: {full_message}")
+        except socket.timeout:
+            continue 
         except Exception as e:
             print(f"Error saat menerima atau mendekripsi pesan: {e}")
+    if not client._closed:
+        client.close()
 
 print(f"Your IP: {IP}")
 
@@ -140,7 +156,11 @@ while True:
     message = input("")
     if message == "!q":
         client.sendto(f"LEAVE_TAG:{username}".encode(), server_address)
-        exit()
+        exit_flag = True 
+        break  
     else:
         encrypted_message = encrypt(f"{username}: {message}", server_public_key)
         client.sendto(str(encrypted_message).encode(), server_address)
+
+t.join() 
+print("Anda telah keluar dari obrolan.")

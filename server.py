@@ -66,10 +66,11 @@ def receive():
 
                     elif message.decode().startswith("LEAVE_TAG"):
                         username = username_map.get(addr, "Unknown")
+                        server.sendto("bye bye".encode(), addr)
                         if addr in clients:
                             clients.remove(addr)
                         if addr in username_map:
-                            usernames.rempve(username_map[addr])
+                            usernames.remove(username_map[addr])
                             del username_map[addr]
                         if addr in auth_clients:
                             del auth_clients[addr]
