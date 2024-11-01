@@ -1,7 +1,7 @@
 import socket
 import threading
 import queue
-
+from rsa_module import generate_keys, encrypt, decrypt
 
 messages = queue.Queue()
 clients = []
@@ -12,7 +12,8 @@ username_map = {}
 
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind(("0.0.0.0", 9999))
-
+public_key, private_key = generate_keys() # generate key buat server
+client_public_keys = {} #simpen public key client
 
 def receive():
     while True:
@@ -20,16 +21,26 @@ def receive():
             message, addr = server.recvfrom(1024)
 
             if addr not in auth_clients:
-                if message.decode().startswith("PASSWORD:"):
-                    entered_pass = message.decode().split(":")[1].strip()
-                    if entered_pass == PASSWORD:
-                        auth_clients[addr] = True
-                        server.sendto("Password benar! Anda berada di obrolan".encode(), addr)
-                        #messages.put((f"SIGNUP_TAG:{username_map[addr]}".encode(), addr))
-                    else:
-                        server.sendto("Password salah! Coba lagi.".encode(), addr)
+                if addr not in client_public_keys:
+                    # pesan pertama klien kunci publiknya klien
+                    e, n = map(int, message.decode().split(","))
+                    client_public_keys[addr] = (e, n)
+                    # Kirim kunci publik server ke klien
+                    server.sendto(f"{public_key[0]},{public_key[1]}".encode(), addr)
                 else:
-                    server.sendto("Masukkan password dengan format PASSWORD:<password>".encode(), addr)
+                    if message.decode().startswith("PASSWORD:"):
+                        encrypted_pass = message.decode().split(":", 1)[1].strip()
+                        entered_pass = decrypt(encrypted_pass, private_key)
+                        print(f"entered_pass: {entered_pass}")
+                    
+                        if (entered_pass == PASSWORD):
+                            auth_clients[addr] = True
+                            server.sendto("Password benar! Anda berada di obrolan".encode(), addr)
+                            #messages.put((f"SIGNUP_TAG:{username_map[addr]}".encode(), addr))
+                        else:
+                            server.sendto("Password salah! Coba lagi.".encode(), addr)
+                    else:
+                        server.sendto("Masukkan password dengan format PASSWORD:<password>".encode(), addr)
 
             else:
                 #if addr not in username_map:
@@ -66,16 +77,28 @@ def receive():
                         messages.put((broadcast_message.encode(), None))
 
                     else:
-                        messages.put((message, addr))
+                        encrypted_message = message.decode()
+                        decrypted_message = decrypt(encrypted_message, private_key)
+                        messages.put((decrypted_message.encode(), addr))    
                 
         except:
             pass
 
+def send_message(client, message):
+    # batesin ukuran buat dikirim ke klien
+    max_size = 1000  # maks ukuran tiap bagian pesan
+    for i in range(0, len(message), max_size):
+        chunk = message[i:i + max_size]
+        # tambahin end buat pesan di akhir
+        if i + max_size >= len(message):
+            chunk += "END"
+        server.sendto(chunk.encode(), client)
+
 def broadcast():
     while True:
         while not messages.empty():
-            message, addr= messages.get()
-            print(message.decode())
+            message, addr = messages.get()
+            print("Broadcasting message:", message.decode())
 
             if addr and addr not in clients:
                 clients.append(addr)
@@ -83,20 +106,18 @@ def broadcast():
             for client in clients:
                 try:
                     if message.decode().startswith("SIGNUP_TAG:"):
-                        username = message.decode()[message.decode().index(":")+1:]
-                        if client != addr:  # Don't send to the user who just joined
-                            server.sendto(f"{username} memasuki obrolan!".encode(), client)
-                       
+                        username = message.decode().split(":")[1].strip()
+                        if client != addr:
+                            encrypted_message = encrypt(f"{username} memasuki obrolan!", client_public_keys[client])
+                            send_message(client, f"ENCRYPTED:{encrypted_message}")
                     else:
-                        print("Pesan dikirim")
-                        server.sendto(message, client)
-
-                    '''else:
-                        print("Pesan dikirim")
-                        server.sendto(f"{message.decode()}".encode(), client)'''
-                except:
+                        encrypted_message = encrypt(message.decode(), client_public_keys[client])
+                        send_message(client, f"ENCRYPTED:{encrypted_message}")
+                except Exception as e:
+                    print(f"Error sending message to client {client}: {e}")
                     if client in clients:
                         clients.remove(client)
+
 
 t1 = threading.Thread(target=receive)
 t2 = threading.Thread(target=broadcast)
